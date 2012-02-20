@@ -53,13 +53,9 @@ class MergeToUnityPuppet(bpy.types.Operator) :
         mesh_data.from_pydata(verts, [], faces)
         return mesh_data
 
-    def face_maker(self, x):
-        y = 0
-        while x > 0:
-            yield [i for i in range(y,y+4)]
-            x-=4
-            y+=4
- 
+    def face_maker(self, total_verts):
+        return [range(i,i+4) for i in range(0,total_verts,4)] 
+
     def invoke(self, context, event) :
         
         all_verts = list()
@@ -72,7 +68,7 @@ class MergeToUnityPuppet(bpy.types.Operator) :
         for plane_verts in all_verts:
             final_verts.extend([(vert.x,vert.y,0.0) for vert in plane_verts])        
         
-        new_mesh = self.create_mesh(tuple(final_verts),list(self.face_maker(len(final_verts))))
+        new_mesh = self.create_mesh(tuple(final_verts),self.face_maker(len(final_verts)))
         new_mesh.update()
         new_obj = bpy.data.objects.new("UnityPuppet", new_mesh)
         
