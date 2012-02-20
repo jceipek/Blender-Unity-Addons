@@ -25,17 +25,8 @@ bl_info = {
     "description": "Combines selected planes for use as a 2D puppet in Unity",
     "warning": "Alpha; discards material and texture information",
     "wiki_url": "https://github.com/jceipek/Blender-Unity-Addons/wiki/Merge-to-Unity-Puppet",
-    "tracker_url": "git@github.com:jceipek/Blender-Unity-Addons.git",
+    "tracker_url": "https://github.com/jceipek/Blender-Unity-Addons/issues",
     "category": "Mesh"}
-
-'''
-A quick hack to make puppet creation for Unity easier.
-Simply arrange all planes in the x,y plane and change the z offset so
-that the planes are layered correctly. This script will then
-generate a new mesh with all of the planes merged and with the z
-coordinate discarded. They will be in the correct order when
-Unity renders them.
-'''
 
 import bpy
 import math
