@@ -54,9 +54,8 @@ class MergeToUnityPuppet(bpy.types.Operator) :
  
 
     axis = bpy.props.EnumProperty(items=(("0", "X", "Merge relative to x-axis"),
-    ("1","Y","Merge relative to y-axis"),("2","Z","Merge relative to z-axis")),
-    name="Merge Axis", description="Choose the axis to use for depth information."
-    )#default={"2"})
+    ("1", "Y", "Merge relative to y-axis"),("2", "Z", "Merge relative to z-axis")),
+    name="Merge Axis", description="Choose the axis to use for depth information.")
  
     def create_mesh(self, verts, faces):
         mesh_data = bpy.data.meshes.new(name="UnityPuppet")
@@ -68,17 +67,21 @@ class MergeToUnityPuppet(bpy.types.Operator) :
 
     def execute(self, context) :
         
+        # Store list of selected vertices in a [[0,1,2,3],[4,5,6,7],[8,9,10,11],...] list
         all_verts = list()
         for obj in bpy.context.selected_objects:
             loc = obj.location
             all_verts.append([vert.co+loc for vert in obj.data.vertices])
         
+        # Sort the list according to the depth (user-defined) of the 0th vertex #XXX (should probably be avg. value)
         if self.axis == "0":
             all_verts.sort(key=lambda v: v[0].x, reverse=False)
         elif self.axis == "1":
             all_verts.sort(key=lambda v: v[0].y, reverse=False)
         elif self.axis == "2":
             all_verts.sort(key=lambda v: v[0].z, reverse=False)
+
+        # Discard the depth component in a new, flat list
         final_verts = list()
         for plane_verts in all_verts:
             if self.axis == "0":
@@ -86,19 +89,27 @@ class MergeToUnityPuppet(bpy.types.Operator) :
             elif self.axis == "1":
                 final_verts.extend([(vert.x,0.0,vert.z) for vert in plane_verts])       
             elif self.axis == "2":
-                final_verts.extend([(vert.x,vert.y,0.0) for vert in plane_verts])      
+                final_verts.extend([(vert.x,vert.y,0.0) for vert in plane_verts])
+
+        # Create a new mesh and object with the custom vertices; fill in the faces
         new_mesh = self.create_mesh(tuple(final_verts),self.face_maker(len(final_verts)))
         new_mesh.update()
         new_obj = bpy.data.objects.new("UnityPuppet", new_mesh)
         
+        # Link in the object to the current scene
         context.scene.objects.link(new_obj)
+
+        # Deselect everything but the newly created object
         for obj in bpy.context.selected_objects:
             obj.select = False
         new_obj.select = True
+
         return {"FINISHED"}
 
     def draw(self, context) :
-        row = self.layout.row()
+
+        # Radiobutton to change the operational axis 
+        row = self.layout.row()        
         row.prop(self, 'axis', expand=True)
 
 def register():
