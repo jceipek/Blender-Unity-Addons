@@ -19,7 +19,7 @@
 bl_info = {
     "name": "Merge to Unity Puppet",
     "author": "Julian Ceipek",
-    "version": (0,1),
+    "version": (0,2),
     "blender": (2, 6, 2),
     "location": "View3D > ObjectMode > ToolShelf",
     "description": "Combines selected planes for use as a 2D puppet in Unity",
@@ -31,7 +31,7 @@ bl_info = {
 import bpy
 import math
 import mathutils
- 
+
 class MergeToUnityPuppetPanel(bpy.types.Panel) :
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
@@ -41,12 +41,22 @@ class MergeToUnityPuppetPanel(bpy.types.Panel) :
     def draw(self, context) :
         the_col = self.layout.column(align = True)
         the_col.operator("mesh.merge_to_unity_puppet", text = "Merge to Unity Puppet")
- 
+
 class MergeToUnityPuppet(bpy.types.Operator) :
     bl_idname = "mesh.merge_to_unity_puppet"
     bl_label = "Merge to Unity Puppet"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_context = "objectmode"
+    bl_description = "Combine selected planes for use as a 2D puppet in Unity"
+
     bl_options = {'REGISTER', 'UNDO'}
  
+
+    axis = bpy.props.EnumProperty(items=(("0", "X", "Merge relative to x-axis"),
+    ("1","Y","Merge relative to y-axis"),("2","Z","Merge relative to z-axis")),
+    name="Merge Axis", description="Choose the axis to use for depth information."
+    )#default={"2"})
  
     def create_mesh(self, verts, faces):
         mesh_data = bpy.data.meshes.new(name="UnityPuppet")
@@ -56,24 +66,40 @@ class MergeToUnityPuppet(bpy.types.Operator) :
     def face_maker(self, total_verts):
         return [range(i,i+4) for i in range(0,total_verts,4)] 
 
-    def invoke(self, context, event) :
+    def execute(self, context) :
         
         all_verts = list()
         for obj in bpy.context.selected_objects:
             loc = obj.location
             all_verts.append([vert.co+loc for vert in obj.data.vertices])
         
-        all_verts.sort(key=lambda v: v[0].z, reverse=False)
+        if self.axis == "0":
+            all_verts.sort(key=lambda v: v[0].x, reverse=False)
+        elif self.axis == "1":
+            all_verts.sort(key=lambda v: v[0].y, reverse=False)
+        elif self.axis == "2":
+            all_verts.sort(key=lambda v: v[0].z, reverse=False)
         final_verts = list()
         for plane_verts in all_verts:
-            final_verts.extend([(vert.x,vert.y,0.0) for vert in plane_verts])        
-        
+            if self.axis == "0":
+                final_verts.extend([(0.0,vert.y,vert.z) for vert in plane_verts])        
+            elif self.axis == "1":
+                final_verts.extend([(vert.x,0.0,vert.z) for vert in plane_verts])       
+            elif self.axis == "2":
+                final_verts.extend([(vert.x,vert.y,0.0) for vert in plane_verts])      
         new_mesh = self.create_mesh(tuple(final_verts),self.face_maker(len(final_verts)))
         new_mesh.update()
         new_obj = bpy.data.objects.new("UnityPuppet", new_mesh)
         
         context.scene.objects.link(new_obj)
+        for obj in bpy.context.selected_objects:
+            obj.select = False
+        new_obj.select = True
         return {"FINISHED"}
+
+    def draw(self, context) :
+        row = self.layout.row()
+        row.prop(self, 'axis', expand=True)
 
 def register():
     bpy.utils.register_class(MergeToUnityPuppet)
@@ -81,7 +107,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(MergeToUnityPuppet)
-    bpy.utils.unregister_class(MergeToUnityPuppetPanel)
+    bpy.utils.register_class(MergeToUnityPuppetPanel)
 
 if __name__ == "__main__":
     register()
