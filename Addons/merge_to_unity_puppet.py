@@ -103,6 +103,7 @@ class MergeToUnityPuppet(bpy.types.Operator) :
         for obj in bpy.context.selected_objects:
             obj.select = False
         new_obj.select = True
+        bpy.context.scene.objects.active = new_obj
 
         return {"FINISHED"}
 
