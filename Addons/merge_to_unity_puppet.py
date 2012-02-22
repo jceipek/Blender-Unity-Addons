@@ -19,7 +19,7 @@
 bl_info = {
     "name": "Merge to Unity Puppet",
     "author": "Julian Ceipek",
-    "version": (0,2),
+    "version": (0,3),
     "blender": (2, 6, 2),
     "location": "View3D > ObjectMode > ToolShelf",
     "description": "Combines selected planes for use as a 2D puppet in Unity",
@@ -42,6 +42,19 @@ class MergeToUnityPuppetPanel(bpy.types.Panel) :
         the_col = self.layout.column(align = True)
         the_col.operator("mesh.merge_to_unity_puppet", text = "Merge to Unity Puppet")
 
+
+class PlaneContainer:
+    def __init__(self, verts, name):
+        self.verts = verts
+        self.name = name
+
+    def get_depth(self, axis):
+        return sum([d[axis] for d in self.verts])/len(self.verts)
+
+    def strip_depth(self, axis):
+        for v in self.verts:
+            v[axis] = 0.0
+
 class MergeToUnityPuppet(bpy.types.Operator) :
     bl_idname = "mesh.merge_to_unity_puppet"
     bl_label = "Merge to Unity Puppet"
@@ -56,6 +69,9 @@ class MergeToUnityPuppet(bpy.types.Operator) :
     axis = bpy.props.EnumProperty(items=(("0", "X", "Merge relative to x-axis"),
     ("1", "Y", "Merge relative to y-axis"),("2", "Z", "Merge relative to z-axis")),
     name="Merge Axis", description="Choose the axis to use for depth information.")
+
+    create_vert_grps = bpy.props.BoolProperty(name="Create Vertex Groups",
+    description="Create a vertex group for each plane, with the name of the originating object.")
  
     def create_mesh(self, verts, faces):
         mesh_data = bpy.data.meshes.new(name="UnityPuppet")
@@ -67,35 +83,32 @@ class MergeToUnityPuppet(bpy.types.Operator) :
 
     def execute(self, context) :
         
-        # Store list of selected vertices in a [[0,1,2,3],[4,5,6,7],[8,9,10,11],...] list
-        all_verts = list()
+        axis_int = int(self.axis)
+
+        # Store list of planes
+        all_planes = list()
         for obj in bpy.context.selected_objects:
             loc = obj.location
-            all_verts.append([vert.co+loc for vert in obj.data.vertices])
+            all_planes.append(PlaneContainer([vert.co+loc for vert in obj.data.vertices], obj.name))
         
-        # Sort the list according to the depth (user-defined) of the 0th vertex #XXX (should probably be avg. value)
-        if self.axis == "0":
-            all_verts.sort(key=lambda v: v[0].x, reverse=False)
-        elif self.axis == "1":
-            all_verts.sort(key=lambda v: v[0].y, reverse=False)
-        elif self.axis == "2":
-            all_verts.sort(key=lambda v: v[0].z, reverse=False)
-
-        # Discard the depth component in a new, flat list
-        final_verts = list()
-        for plane_verts in all_verts:
-            if self.axis == "0":
-                final_verts.extend([(0.0,vert.y,vert.z) for vert in plane_verts])        
-            elif self.axis == "1":
-                final_verts.extend([(vert.x,0.0,vert.z) for vert in plane_verts])       
-            elif self.axis == "2":
-                final_verts.extend([(vert.x,vert.y,0.0) for vert in plane_verts])
+        # Sort the list according to the depth (user-defined) of the planes
+        all_planes.sort(key=lambda plane: plane.get_depth(axis_int), reverse=False)
+        # Discard the depth component in a new, flat list        
+        final_verts = list()        
+        for plane in all_planes:
+            plane.strip_depth(axis_int)
+            final_verts.extend(plane.verts)
 
         # Create a new mesh and object with the custom vertices; fill in the faces
         new_mesh = self.create_mesh(tuple(final_verts),self.face_maker(len(final_verts)))
         new_mesh.update()
         new_obj = bpy.data.objects.new("UnityPuppet", new_mesh)
-        
+       
+        if self.create_vert_grps:
+            for index,plane in zip(range(0,len(all_planes)*4,4),all_planes):
+                new_vert_grp = new_obj.vertex_groups.new(plane.name)
+                new_vert_grp.add([index,index+1,index+2,index+3],1.0,'ADD')
+
         # Link in the object to the current scene
         context.scene.objects.link(new_obj)
 
@@ -112,6 +125,9 @@ class MergeToUnityPuppet(bpy.types.Operator) :
         # Radiobutton to change the operational axis 
         row = self.layout.row()        
         row.prop(self, 'axis', expand=True)
+        col = self.layout.column()
+        col.prop(self, 'create_vert_grps')
+
 
 def register():
     bpy.utils.register_class(MergeToUnityPuppet)
