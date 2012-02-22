@@ -44,9 +44,13 @@ class MergeToUnityPuppetPanel(bpy.types.Panel) :
 
 
 class PlaneContainer:
-    def __init__(self, verts, name):
+    def __init__(self, verts, name, materials=None):
         self.verts = verts
         self.name = name
+        if materials:
+            self.materials = materials
+        else:
+            self.materials = list()
 
     def get_depth(self, axis):
         return sum([d[axis] for d in self.verts])/len(self.verts)
@@ -71,8 +75,11 @@ class MergeToUnityPuppet(bpy.types.Operator) :
     name="Merge Axis", description="Choose the axis to use for depth information.")
 
     create_vert_grps = bpy.props.BoolProperty(name="Create Vertex Groups",
-    description="Create a vertex group for each plane, with the name of the originating object.")
- 
+    description="Create a vertex group for each plane, with the name of the originating object.", default=True)
+
+    preserve_mats = bpy.props.BoolProperty(name="Preserve Materials",
+    description="Preserve the material properties of the planes. This doesn't work quite as expected, yet.", default=False) #FIXME: update when new feature implemented
+
     def create_mesh(self, verts, faces):
         mesh_data = bpy.data.meshes.new(name="UnityPuppet")
         mesh_data.from_pydata(verts, [], faces)
@@ -89,7 +96,7 @@ class MergeToUnityPuppet(bpy.types.Operator) :
         all_planes = list()
         for obj in bpy.context.selected_objects:
             loc = obj.location
-            all_planes.append(PlaneContainer([vert.co+loc for vert in obj.data.vertices], obj.name))
+            all_planes.append(PlaneContainer([vert.co+loc for vert in obj.data.vertices], obj.name, materials=obj.data.materials))
         
         # Sort the list according to the depth (user-defined) of the planes
         all_planes.sort(key=lambda plane: plane.get_depth(axis_int), reverse=False)
@@ -104,10 +111,19 @@ class MergeToUnityPuppet(bpy.types.Operator) :
         new_mesh.update()
         new_obj = bpy.data.objects.new("UnityPuppet", new_mesh)
        
+        # Make vertex groups for each unique object
         if self.create_vert_grps:
             for index,plane in zip(range(0,len(all_planes)*4,4),all_planes):
                 new_vert_grp = new_obj.vertex_groups.new(plane.name)
                 new_vert_grp.add([index,index+1,index+2,index+3],1.0,'ADD')
+
+        if self.preserve_mats:
+            for index,plane in zip(range(0,len(all_planes)*4,4),all_planes):
+                #new_vert_grp = new_obj.vertex_groups.new(plane.name)
+                #new_vert_grp.add([index,index+1,index+2,index+3],1.0,'ADD')
+                for mat in plane.materials:
+                    if not mat.name in new_obj.data.materials:
+                        new_obj.data.materials.append(mat)
 
         # Link in the object to the current scene
         context.scene.objects.link(new_obj)
@@ -127,6 +143,7 @@ class MergeToUnityPuppet(bpy.types.Operator) :
         row.prop(self, 'axis', expand=True)
         col = self.layout.column()
         col.prop(self, 'create_vert_grps')
+        col.prop(self, 'preserve_mats')
 
 
 def register():
