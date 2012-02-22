@@ -118,12 +118,12 @@ class MergeToUnityPuppet(bpy.types.Operator) :
                 new_vert_grp.add([index,index+1,index+2,index+3],1.0,'ADD')
 
         if self.preserve_mats:
-            for index,plane in zip(range(0,len(all_planes)*4,4),all_planes):
-                #new_vert_grp = new_obj.vertex_groups.new(plane.name)
-                #new_vert_grp.add([index,index+1,index+2,index+3],1.0,'ADD')
+            for index,plane in zip(range(len(all_planes)),all_planes):
                 for mat in plane.materials:
                     if not mat.name in new_obj.data.materials:
                         new_obj.data.materials.append(mat)
+                face = new_obj.data.faces[index]
+                face.material_index = index
 
         # Link in the object to the current scene
         context.scene.objects.link(new_obj)
