@@ -44,13 +44,18 @@ class MergeToUnityPuppetPanel(bpy.types.Panel) :
 
 
 class PlaneContainer:
-    def __init__(self, verts, name, materials=None):
+    def __init__(self, verts, name, materials=None, uv_maps=None):
         self.verts = verts
         self.name = name
         if materials:
             self.materials = materials
         else:
             self.materials = list()
+        if uv_maps:
+            self.uv_maps = uv_maps
+            print(uv_maps)
+        else:
+            self.uv_maps = list()
 
     def get_depth(self, axis):
         return sum([d[axis] for d in self.verts])/len(self.verts)
@@ -96,7 +101,7 @@ class MergeToUnityPuppet(bpy.types.Operator) :
         all_planes = list()
         for obj in bpy.context.selected_objects:
             loc = obj.location
-            all_planes.append(PlaneContainer([vert.co+loc for vert in obj.data.vertices], obj.name, materials=obj.data.materials))
+            all_planes.append(PlaneContainer([vert.co+loc for vert in obj.data.vertices], obj.name, materials=obj.data.materials, uv_maps=obj.data.uv_textures))
         
         # Sort the list according to the depth (user-defined) of the planes
         all_planes.sort(key=lambda plane: plane.get_depth(axis_int), reverse=False)
@@ -122,8 +127,15 @@ class MergeToUnityPuppet(bpy.types.Operator) :
                 for mat in plane.materials:
                     if not mat.name in new_obj.data.materials:
                         new_obj.data.materials.append(mat)
+                #
+                #for uv_map in plane.uv_maps:
+                #    if not uv_map.name in new_obj.data.uv_textures:
+                #        #new_obj.data.uv_textures.new()
+                #        #plane.data.uv_textures[0].data[0].image = material.texture_slots[0].texture.image
+                #        #new_obj.data.uv_textures.append(uv_map)
                 face = new_obj.data.faces[index]
                 face.material_index = index
+                #TODO: Add texture to face here, using UV editor
 
         # Link in the object to the current scene
         context.scene.objects.link(new_obj)
