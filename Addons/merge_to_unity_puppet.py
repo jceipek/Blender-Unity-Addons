@@ -19,11 +19,11 @@
 bl_info = {
     "name": "Merge to Unity Puppet",
     "author": "Julian Ceipek",
-    "version": (0,3),
+    "version": (0,4),
     "blender": (2, 6, 2),
     "location": "View3D > ObjectMode > ToolShelf",
     "description": "Combines selected planes for use as a 2D puppet in Unity",
-    "warning": "Alpha; discards material and texture information",
+    "warning": "Alpha; does not preserve custom uv mapping",
     "wiki_url": "https://github.com/jceipek/Blender-Unity-Addons/wiki/Merge-to-Unity-Puppet",
     "tracker_url": "https://github.com/jceipek/Blender-Unity-Addons/issues",
     "category": "Mesh"}
@@ -83,7 +83,7 @@ class MergeToUnityPuppet(bpy.types.Operator) :
     description="Create a vertex group for each plane, with the name of the originating object.", default=True)
 
     preserve_mats = bpy.props.BoolProperty(name="Preserve Materials",
-    description="Preserve the material properties of the planes. This doesn't work quite as expected, yet.", default=False) #FIXME: update when new feature implemented
+    description="Preserve the material properties of the planes. May not work with multiple textures/materials per object.", default=False) 
 
     def create_mesh(self, verts, faces):
         mesh_data = bpy.data.meshes.new(name="UnityPuppet")
@@ -123,20 +123,23 @@ class MergeToUnityPuppet(bpy.types.Operator) :
                 new_vert_grp.add([index,index+1,index+2,index+3],1.0,'ADD')
 
         if self.preserve_mats:
+            uvtex = new_obj.data.uv_textures.new()
+            uvtex.name = "Unity Puppet Atlas"
+
             for index,plane in zip(range(len(all_planes)),all_planes):
                 for mat in plane.materials:
                     if not mat.name in new_obj.data.materials:
                         new_obj.data.materials.append(mat)
-                #
-                #for uv_map in plane.uv_maps:
-                #    if not uv_map.name in new_obj.data.uv_textures:
-                #        #new_obj.data.uv_textures.new()
-                #        #plane.data.uv_textures[0].data[0].image = material.texture_slots[0].texture.image
-                #        #new_obj.data.uv_textures.append(uv_map)
+                
                 face = new_obj.data.faces[index]
                 face.material_index = index
-                #TODO: Add texture to face here, using UV editor
-
+                #Add texture to face here, using UV editor
+                try:
+                    uvtex.data[index].image = plane.materials[0].texture_slots[0].texture.image
+                except Exception as e:
+                    print(e)
+                    print("Thar be failure here")
+                    pass
         # Link in the object to the current scene
         context.scene.objects.link(new_obj)
 
