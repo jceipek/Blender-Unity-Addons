@@ -133,12 +133,11 @@ class MergeToUnityPuppet(bpy.types.Operator) :
                 
                 face = new_obj.data.faces[index]
                 face.material_index = index
-                #Add texture to face here, using UV editor
+                
+                #Add texture to face
                 try:
                     uvtex.data[index].image = plane.materials[0].texture_slots[0].texture.image
                 except Exception as e:
-                    print(e)
-                    print("Thar be failure here")
                     pass
         # Link in the object to the current scene
         context.scene.objects.link(new_obj)
